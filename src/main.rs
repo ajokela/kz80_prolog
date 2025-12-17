@@ -9,10 +9,11 @@ use kz80_prolog::{parse, Program};
 fn print_usage() {
     eprintln!("kz80_prolog - Prolog compiler for Z80");
     eprintln!();
-    eprintln!("Usage: kz80_prolog [options] <input.pl>");
+    eprintln!("Usage: kz80_prolog [options] [input.pl]");
     eprintln!();
     eprintln!("Options:");
     eprintln!("  -o <file>     Output binary file (default: out.bin)");
+    eprintln!("  --repl        Generate on-target REPL binary");
     eprintln!("  --ast         Print AST and exit");
     eprintln!("  --tokens      Print tokens and exit");
     eprintln!("  -h, --help    Show this help");
@@ -20,6 +21,7 @@ fn print_usage() {
     eprintln!("Examples:");
     eprintln!("  kz80_prolog program.pl           Compile to out.bin");
     eprintln!("  kz80_prolog -o test.bin test.pl  Compile to test.bin");
+    eprintln!("  kz80_prolog --repl -o repl.bin   Generate REPL binary");
     eprintln!("  kz80_prolog --ast program.pl     Print AST");
 }
 
@@ -75,6 +77,7 @@ fn main() -> ExitCode {
     let mut output_file = PathBuf::from("out.bin");
     let mut print_ast_flag = false;
     let mut print_tokens_flag = false;
+    let mut repl_mode = false;
 
     let mut i = 1;
     while i < args.len() {
@@ -97,6 +100,9 @@ fn main() -> ExitCode {
             "--tokens" => {
                 print_tokens_flag = true;
             }
+            "--repl" => {
+                repl_mode = true;
+            }
             arg if arg.starts_with('-') => {
                 eprintln!("Unknown option: {}", arg);
                 return ExitCode::from(1);
@@ -106,6 +112,22 @@ fn main() -> ExitCode {
             }
         }
         i += 1;
+    }
+
+    // Handle REPL mode
+    if repl_mode {
+        let code = kz80_prolog::repl::generate_repl();
+        match fs::write(&output_file, &code) {
+            Ok(()) => {
+                println!("Generated REPL binary: {}", output_file.display());
+                println!("  {} bytes", code.len());
+            }
+            Err(e) => {
+                eprintln!("Error writing REPL: {}", e);
+                return ExitCode::from(1);
+            }
+        }
+        return ExitCode::SUCCESS;
     }
 
     let input_file = match input_file {
